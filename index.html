@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes"/>
+<title>Metals Engine</title>
+<style>
+:root{
+  --bg:#07090f;
+  --p1:#0c1120;
+  --p2:#070a12;
+  --line:rgba(255,255,255,.08);
+  --text:#e6ecff;
+  --muted:rgba(230,236,255,.66);
+  --good:#5cff9d;
+  --warn:#ffd76b;
+  --bad:#ff7b7b;
+  --c1:#5c8dff;
+  --c2:#9b7bff;
+  --shadow:rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,system-ui;overflow-x:hidden}
+body{padding:clamp(10px,2.5vw,14px)}
+.root{display:flex;flex-direction:column;gap:clamp(10px,2.5vw,14px);min-height:100vh;max-width:980px;margin:0 auto}
+
+.panel{
+  border-radius:clamp(12px,3vw,18px);
+  background:linear-gradient(180deg,var(--p1),var(--p2));
+  border:1px solid var(--line);
+  padding:clamp(12px,3vw,16px);
+}
+
+.top{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+.brand{
+  font-weight:950;font-size:clamp(14px,4vw,18px);letter-spacing:0.3px;
+}
+.badges{display:flex;gap:8px;flex-wrap:wrap}
+.badge{
+  padding:8px 12px;border-radius:999px;
+  background:rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.10);
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:nowrap;
+}
+.badge b{font-weight:950}
+.badge.good b{color:var(--good)}
+.badge.warn b{color:var(--warn)}
+.badge.bad  b{color:var(--bad)}
+
+.gate{
+  min-height:clamp(92px,22vw,150px);
+  border-radius:clamp(14px,4vw,20px);
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  font-size:clamp(22px,7.5vw,40px);
+  font-weight:950;letter-spacing:1px;
+  transition:all .25s ease;
+  padding:12px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.10);
+}
+.gate.edge{
+  background:rgba(92,255,157,.10);
+  border:2px solid rgba(92,255,157,.25);
+  color:var(--good);
+}
+.gate.noedge{
+  background:rgba(255,215,107,.08);
+  border:2px solid rgba(255,215,107,.20);
+  color:var(--warn);
+}
+.gate.entropy{
+  background:rgba(255,123,123,.08);
+  border:2px solid rgba(255,123,123,.20);
+  color:var(--bad);
+}
+
+.h{
+  font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);
+  margin-bottom:10px;
+}
+.metrics{display:flex;flex-direction:column;gap:12px}
+.metric{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px}
+.metric .k{color:var(--muted)}
+.metric .v{font-family:ui-monospace,Menlo,monospace;font-weight:950}
+
+.bar{
+  height:10px;border-radius:999px;background:#0b0f18;
+  border:1px solid rgba(255,255,255,.08);overflow:hidden;
+}
+.fill{
+  height:100%;width:0;
+  background:linear-gradient(90deg,var(--c1),var(--c2));
+  transition:width .25s ease;
+}
+.fill.warn{background:linear-gradient(90deg,var(--warn),#ff9f6a)}
+.fill.bad{background:linear-gradient(90deg,var(--bad),#ffb199)}
+
+.grid{
+  display:grid;grid-template-columns:1fr;gap:clamp(10px,2.5vw,14px);
+}
+@media(min-width:980px){.grid{grid-template-columns:1.35fr .65fr}}
+
+.caption{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;
+}
+.kv{
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:16px;background:rgba(0,0,0,.22);
+  padding:12px;min-height:62px;
+}
+.kv .k{
+  font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px
+}
+.kv .v{
+  font-family:ui-monospace,Menlo,monospace;font-weight:950;font-size:13px;word-break:break-word;
+}
+
+.box{
+  padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.08);
+  background:rgba(0,0,0,.20);display:flex;flex-direction:column;gap:10px;
+}
+.box .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.box .v{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:950;word-break:break-word}
+
+.controls{
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center
+}
+button,select{
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.30);
+  color:var(--text);
+  border-radius:14px;
+  padding:12px 16px;
+  cursor:pointer;
+  font-weight:950;
+  font-size:14px;
+  min-height:44px;
+  touch-action:manipulation;
+}
+button.primary{background:linear-gradient(90deg,rgba(92,141,255,.30),rgba(155,123,255,.30))}
+button.good{background:rgba(92,255,157,.14);border-color:rgba(92,255,157,.22)}
+button:active{background:rgba(255,255,255,.06);transform:scale(0.99)}
+
+.notice{
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(0,0,0,.22);
+  border-radius:14px;padding:12px;display:none;
+}
+.notice .t{font-family:ui-monospace,Menlo,monospace;font-weight:950;margin-bottom:6px}
+.notice .p{color:rgba(230,236,255,.88);font-size:13px;line-height:1.35}
+
+.persona{
+  display:flex;flex-direction:column;align-items:center;gap:10px;padding:6px 0;
+}
+.creature{
+  width:min(240px,72vw);
+  height:180px;
+  position:relative;
+  border-radius:20px;
+  background:radial-gradient(120px 90px at 50% 35%, rgba(92,141,255,.18), rgba(0,0,0,.22));
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 16px 30px var(--shadow);
+  overflow:hidden;
+}
+.scan{
+  position:absolute;inset:-40%;
+  background:linear-gradient(120deg, transparent, rgba(255,255,255,.06), transparent);
+  transform:translateX(-40%) rotate(12deg);
+  animation:scan 4.5s linear infinite;
+  opacity:.85;
+}
+@keyframes scan{
+  0%{transform:translateX(-50%) rotate(12deg)}
+  100%{transform:translateX(60%) rotate(12deg)}
+}
+.sprite{
+  position:absolute;left:50%;top:52%;
+  transform:translate(-50%,-50%);
+  font-size:78px;
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.55));
+  animation:bob 2.2s ease-in-out infinite;
+}
+@keyframes bob{
+  0%,100%{transform:translate(-50%,-50%)}
+  50%{transform:translate(-50%,-54%)}
+}
+.blink{
+  position:absolute;left:50%;top:24%;
+  transform:translateX(-50%);
+  width:76%;
+  height:2px;
+  background:rgba(255,255,255,.08);
+  opacity:.55;
+}
+.mood{
+  font-family:ui-monospace,Menlo,monospace;
+  font-size:13px;color:var(--muted);
+  text-align:center;max-width:95%;line-height:1.35;
+}
+
+.stats{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px;
+}
+.meter{
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:16px;background:rgba(0,0,0,.18);padding:10px;
+}
+.meter .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.meter .v{font-family:ui-monospace,Menlo,monospace;font-weight:950;font-size:13px}
+.meter .bar{height:8px;margin-top:8px}
+
+.small{
+  font-size:12px;color:var(--muted);line-height:1.35;margin-top:10px
+}
+
+@media (prefers-reduced-motion: reduce){
+  .fill{transition:none}
+  .scan{animation:none}
+  .sprite{animation:none}
+  button:active{transform:none}
+}
+</style>
+</head>
+<body>
+<div class="root">
+
+  <div class="panel top">
+    <div class="brand">Metals Engine</div>
+    <div class="badges">
+      <div class="badge">C <b id="cycleTxt">0</b></div>
+      <div class="badge" id="badgeConf">CONF <b id="confTxt">0.00</b></div>
+      <div class="badge" id="badgeReg">REG <b id="regTxt">BASE</b></div>
+      <div class="badge" id="badgeDiv">DIV <b id="divTxt">BAL</b></div>
+    </div>
+  </div>
+
+  <div class="gate noedge" id="gate">BASELINE</div>
+
+  <div class="grid">
+    <!-- LEFT: MACRO + EDGE -->
+    <div class="panel">
+      <div class="h">Macro Metals Core</div>
+
+      <div class="controls" style="margin-bottom:10px">
+        <select id="instrument">
+          <option value="XAU">XAU (Gold)</option>
+          <option value="XAG">XAG (Silver)</option>
+        </select>
+        <button class="primary" id="btnStart">▶ Start</button>
+        <button class="good" id="btnCommit">✓ Commit</button>
+        <button id="btnReset60">60s Reset</button>
+        <button id="btnReset">⟲</button>
+      </div>
+
+      <div class="notice" id="notice">
+        <div class="t" id="noticeT">Friction</div>
+        <div class="p" id="noticeP">Hold to commit when friction is active.</div>
+      </div>
+
+      <div class="metrics">
+        <div>
+          <div class="metric"><span class="k">Confluence</span><span class="v" id="confVal">0.000</span></div>
+          <div class="bar"><div class="fill" id="confBar"></div></div>
+        </div>
+
+        <div>
+          <div class="metric"><span class="k">Fragility</span><span class="v" id="fragVal">0.000</span></div>
+          <div class="bar"><div class="fill warn" id="fragBar"></div></div>
+        </div>
+
+        <div>
+          <div class="metric"><span class="k">Dominant driver</span><span class="v" id="driverTxt">-</span></div>
+          <div class="metric"><span class="k">Conflict</span><span class="v" id="conflictTxt">-</span></div>
+          <div class="metric"><span class="k">Flip condition</span><span class="v" id="flipTxt">-</span></div>
+        </div>
+      </div>
+
+      <div class="caption">
+        <div class="kv">
+          <div class="k">Regime</div>
+          <div class="v" id="regimeTxt">BASE</div>
+        </div>
+        <div class="kv">
+          <div class="k">Bias</div>
+          <div class="v" id="biasTxt">NEUTRAL</div>
+        </div>
+        <div class="kv">
+          <div class="k">Divergence</div>
+          <div class="v" id="divergeTxt">BALANCED</div>
+        </div>
+      </div>
+
+      <div class="box" style="margin-top:12px">
+        <div class="k">Thesis</div>
+        <div class="v" id="thesisTxt">-</div>
+        <div class="k">Invalidation</div>
+        <div class="v" id="invTxt">-</div>
+      </div>
+
+      <div class="box" style="margin-top:12px">
+        <div class="k">Domain contributions</div>
+        <div class="v" id="domainsTxt">-</div>
+      </div>
+
+      <div class="small">Educational confluence model. Not execution. Not financial advice.</div>
+    </div>
+
+    <!-- RIGHT: COMPANION + REGULATION -->
+    <div class="panel">
+      <div class="h">Companion</div>
+      <div class="persona">
+        <div class="creature" id="creature">
+          <div class="scan"></div>
+          <div class="blink"></div>
+          <div class="sprite" id="sprite">◉‿◉</div>
+        </div>
+        <div class="mood" id="mood">Baseline. Separate market noise from your story about it.</div>
+
+        <div class="controls" style="justify-content:center">
+          <button class="primary" id="btnCare">Care</button>
+          <button id="btnJournal">Audit</button>
+          <button id="btnBreath">Breath</button>
+        </div>
+
+        <div class="stats">
+          <div class="meter">
+            <div class="k">Calm</div>
+            <div class="v" id="calmTxt">0.60</div>
+            <div class="bar"><div class="fill" id="calmBar"></div></div>
+          </div>
+          <div class="meter">
+            <div class="k">Clarity</div>
+            <div class="v" id="clarityTxt">0.50</div>
+            <div class="bar"><div class="fill" id="clarityBar"></div></div>
+          </div>
+          <div class="meter">
+            <div class="k">Discipline</div>
+            <div class="v" id="discTxt">0.50</div>
+            <div class="bar"><div class="fill" id="discBar"></div></div>
+          </div>
+        </div>
+
+        <div class="box" style="width:100%;margin-top:10px">
+          <div class="k">Secular regulation cue</div>
+          <div class="v" id="cueTxt">Name the distortion. Return to control: rules, sizing, patience.</div>
+        </div>
+
+        <div class="small">If you feel unsafe or in crisis, contact local emergency services or a trusted person.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+
+/* ------------------ Utils ------------------ */
+function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
+function setBar(id,val){document.getElementById(id).style.width=(clamp(val,0,1)*100).toFixed(0)+"%"}
+function badgeClass(el,score){
+  el.classList.remove("good","warn","bad");
+  if(score>0.66) el.classList.add("good");
+  else if(score>0.42) el.classList.add("warn");
+  else el.classList.add("bad");
+}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+
+/* ------------------ Macro factor spine (offline simulated, real-data ready) ------------------ */
+const Macro = (() => {
+  const mean = (a)=>a.reduce((s,x)=>s+x,0)/Math.max(1,a.length);
+  const stdev = (a)=>{const m=mean(a);const v=mean(a.map(x=>(x-m)*(x-m)));return Math.sqrt(v);}
+  const zscore = (x,a,minN=80)=>{if(!a||a.length<minN) return 0; const m=mean(a), sd=stdev(a); return sd>1e-9 ? (x-m)/sd : 0;}
+  const tanh = (x)=>Math.tanh(x);
+  const push = (arr,x,max=650)=>{arr.push(x); if(arr.length>max) arr.shift();}
+
+  const H = {
+    realYield:[], dxy:[], liquidity:[], funding:[], vix:[],
+    copperMom:[], coverage:[], positioning:[]
+  };
+
+  const V = {
+    y10:4.2, be10:2.3, dxy:104.0, tga:700, rrp:400, sofr:5.30, ois3m:5.25, vix:16.0,
+    copper:4.00, copper20dAgo:3.95,
+    comexRegisteredMoz:92, comexOIMoz:420,
+    cotPercentile:0.35
+  };
+
+  const W = {
+    XAU:{ realYield:0.28, dxy:0.22, liquidity:0.20, vix:0.15, funding:0.15 },
+    XAG:{ realYield:0.20, dxy:0.18, liquidity:0.18, industrial:0.16, physical:0.16, positioning:0.12 }
+  };
+
+  function evolve(){
+    const t = Date.now()/1000;
+
+    // Rate and breakeven drift
+    V.y10 = clamp(4.0 + Math.sin(t/45)*0.25 + (Math.random()-0.5)*0.05, 2.5, 6.0);
+    V.be10 = clamp(2.2 + Math.sin(t/60)*0.18 + (Math.random()-0.5)*0.04, 1.0, 3.5);
+
+    // USD oscillation with occasional impulse
+    const usdImpulse = (Math.random()<0.03) ? (0.8 + Math.random()*0.8) : 0;
+    V.dxy = clamp(104 + Math.sin(t/55)*1.2 + (Math.random()-0.5)*0.35 + usdImpulse, 90, 118);
+
+    // Liquidity proxy chunks
+    V.tga = clamp(700 + Math.sin(t/80)*60 + (Math.random()-0.5)*12, 400, 1000);
+    V.rrp = clamp(380 + Math.sin(t/75)*70 + (Math.random()-0.5)*10, 0, 900);
+
+    // Funding and risk spikes
+    const spike = (Math.random()<0.03) ? (0.25 + Math.random()*0.35) : 0;
+    V.sofr = clamp(5.30 + (Math.random()-0.5)*0.03 + spike, 3.0, 6.0);
+    V.ois3m = clamp(5.25 + (Math.random()-0.5)*0.03, 2.8, 5.8);
+    V.vix = clamp(16 + Math.sin(t/40)*2.5 + spike*30 + (Math.random()-0.5)*1.0, 10, 55);
+
+    // Industrial proxy
+    const copperDrift = Math.sin(t/70)*0.08 + (Math.random()-0.5)*0.02;
+    V.copper = clamp(V.copper + copperDrift, 3.0, 5.5);
+    V.copper20dAgo = clamp(V.copper20dAgo + Math.sin(t/90)*0.04 + (Math.random()-0.5)*0.02, 3.0, 5.5);
+
+    // Physical tightness proxy
+    const regMove = Math.sin(t/85)*1.2 + (Math.random()-0.5)*0.4;
+    V.comexRegisteredMoz = clamp(92 + regMove, 50, 140);
+    V.comexOIMoz = clamp(420 + Math.sin(t/95)*25 + (Math.random()-0.5)*12, 250, 600);
+
+    // Positioning percentile mean reversion
+    V.cotPercentile = clamp(V.cotPercentile + (0.5 - V.cotPercentile)*0.02 + (Math.random()-0.5)*0.04, 0, 1);
+  }
+
+  function computeFactors(){
+    const realYieldRaw = V.y10 - V.be10; // higher is bearish
+    const fundingRaw = (V.sofr - V.ois3m); // higher spread is stress
+    const liquidityRaw = -(V.tga) -(V.rrp); // lower levels imply more liquidity on margin (proxy)
+    const copperMomRaw = (V.copper - V.copper20dAgo);
+    const coverageRaw = (V.comexRegisteredMoz / Math.max(1,V.comexOIMoz));
+    const positioningRaw = V.cotPercentile;
+
+    push(H.realYield, realYieldRaw);
+    push(H.funding, fundingRaw);
+    push(H.liquidity, liquidityRaw);
+    push(H.dxy, V.dxy);
+    push(H.vix, V.vix);
+    push(H.copperMom, copperMomRaw);
+    push(H.coverage, coverageRaw);
+    push(H.positioning, positioningRaw);
+
+    const zRY   = zscore(realYieldRaw, H.realYield);
+    const zDXY  = zscore(V.dxy, H.dxy);
+    const zLIQ  = zscore(liquidityRaw, H.liquidity);
+    const zFUND = zscore(fundingRaw, H.funding);
+    const zVIX  = zscore(V.vix, H.vix);
+    const zIND  = zscore(copperMomRaw, H.copperMom);
+    const zCOV  = zscore(coverageRaw, H.coverage);
+    const zPOS  = zscore(positioningRaw, H.positioning);
+
+    const gold = {
+      realYield: tanh((-zRY)/1.5),
+      dxy:      tanh((-zDXY)/1.5),
+      liquidity:tanh((+zLIQ)/1.3),
+      vix:      tanh((+zVIX)/1.4),
+      funding:  tanh((-zFUND)/1.2)
+    };
+    const silver = {
+      realYield: gold.realYield,
+      dxy: tanh((-zDXY)/1.5),
+      liquidity: tanh((+zLIQ)/1.3),
+      industrial: tanh((+zIND)/1.3),
+      physical: tanh((-zCOV)/1.1),
+      positioning: tanh((-zPOS)/1.5)
+    };
+
+    return { gold, silver, z:{zRY,zDXY,zLIQ,zFUND,zVIX,zIND,zCOV,zPOS} };
+  }
+
+  function score(f){
+    const g=f.gold, s=f.silver;
+    const goldScore =
+      W.XAU.realYield*g.realYield +
+      W.XAU.dxy*g.dxy +
+      W.XAU.liquidity*g.liquidity +
+      W.XAU.vix*g.vix +
+      W.XAU.funding*g.funding;
+
+    const silverScore =
+      W.XAG.realYield*s.realYield +
+      W.XAG.dxy*s.dxy +
+      W.XAG.liquidity*s.liquidity +
+      W.XAG.industrial*s.industrial +
+      W.XAG.physical*s.physical +
+      W.XAG.positioning*s.positioning;
+
+    return { goldScore: clamp(goldScore,-1,1), silverScore: clamp(silverScore,-1,1) };
+  }
+
+  function confluenceFragility(f, instrument){
+    const noise=0.18;
+    const vec = instrument==="XAU" ? f.gold : f.silver;
+    const weights = instrument==="XAU"
+      ? {realYield:W.XAU.realYield,dxy:W.XAU.dxy,liquidity:W.XAU.liquidity,vix:W.XAU.vix,funding:W.XAU.funding}
+      : {realYield:W.XAG.realYield,dxy:W.XAG.dxy,liquidity:W.XAG.liquidity,industrial:W.XAG.industrial,physical:W.XAG.physical,positioning:W.XAG.positioning};
+
+    let totalW=0, alignedW=0;
+    const contrib01 = {};
+    for(const k in weights){
+      const w=weights[k]; totalW+=w;
+      const mag=Math.abs(vec[k]||0);
+      const c = (mag>noise) ? ((mag-noise)/(1-noise)) : 0;
+      contrib01[k]=clamp(c,0,1);
+      alignedW += c*w;
+    }
+    const confluence = totalW>0 ? alignedW/totalW : 0;
+
+    const a=f.gold;
+    const contradiction = Math.abs(a.realYield-a.dxy) + Math.abs(a.liquidity-a.funding);
+    const physVsUsd = Math.abs((f.silver.physical||0) - (f.silver.dxy||0));
+    const fragility = clamp((contradiction + 0.6*physVsUsd)/4.0, 0, 1);
+
+    return { confluence, fragility, contrib01 };
+  }
+
+  function regime(f){
+    const z=f.z;
+    if(z.zFUND>1.0 && z.zDXY>1.0) return "USD SHORTAGE";
+    if(z.zCOV<-1.0 && (f.silver.physical||0)>0.5) return "PHYSICAL TIGHT";
+    if(z.zLIQ>1.0 && z.zRY<0) return "LIQUIDITY EXPANSION";
+    if(z.zRY<-1.0 && z.zDXY<-0.5) return "REAL YIELD COLLAPSE";
+    if(z.zRY>1.0 && z.zDXY>0.5) return "TIGHT FINANCIALS";
+    if(z.zLIQ<-1.0 && z.zFUND>0.7) return "LIQUIDITY DRAIN";
+    return "BASE";
+  }
+
+  function insight(f, scores, cf, reg, instrument){
+    const pretty = {
+      realYield:"Real Yields", dxy:"USD", liquidity:"Liquidity", vix:"Risk (VIX)", funding:"Funding",
+      industrial:"Industrial", physical:"Physical", positioning:"Positioning"
+    };
+    const vec = instrument==="XAU" ? f.gold : f.silver;
+    const weights = instrument==="XAU"
+      ? {realYield:W.XAU.realYield,dxy:W.XAU.dxy,liquidity:W.XAU.liquidity,vix:W.XAU.vix,funding:W.XAU.funding}
+      : {realYield:W.XAG.realYield,dxy:W.XAG.dxy,liquidity:W.XAG.liquidity,industrial:W.XAG.industrial,physical:W.XAG.physical,positioning:W.XAG.positioning};
+
+    let domK="-", domV=-1;
+    for(const k in weights){
+      const v=Math.abs(vec[k]||0)*weights[k];
+      if(v>domV){domV=v; domK=k;}
+    }
+
+    let conflict="Low";
+    if(Math.sign(f.gold.realYield)!==Math.sign(f.gold.dxy) && Math.abs(f.gold.realYield)>0.45 && Math.abs(f.gold.dxy)>0.45) conflict="Rates vs USD";
+    else if(Math.sign(f.silver.physical)!==Math.sign(f.silver.dxy) && Math.abs(f.silver.physical)>0.55 && Math.abs(f.silver.dxy)>0.45) conflict="USD vs Physical";
+    else if(Math.sign(f.gold.liquidity)!==Math.sign(f.gold.funding) && Math.abs(f.gold.liquidity)>0.45 && Math.abs(f.gold.funding)>0.35) conflict="Liquidity vs Funding";
+
+    let flip="Watch real yields + USD impulse";
+    if(reg==="USD SHORTAGE") flip="Funding eases and USD momentum rolls over";
+    else if(reg==="PHYSICAL TIGHT") flip="Coverage improves or backwardation fades";
+    else if(reg==="LIQUIDITY EXPANSION") flip="Liquidity reverses or real yields rise";
+    else if(reg==="TIGHT FINANCIALS") flip="Rates break lower or USD weakens";
+
+    const rel = clamp(scores.silverScore - scores.goldScore, -1, 1);
+    const divergence = rel>0.30 ? "SILVER LEADING" : rel<-0.30 ? "SILVER LAGGING" : "BALANCED";
+
+    const bias = instrument==="XAU"
+      ? (scores.goldScore>0.25 ? "BULLISH" : scores.goldScore<-0.25 ? "BEARISH" : "NEUTRAL")
+      : (scores.silverScore>0.25 ? "BULLISH" : scores.silverScore<-0.25 ? "BEARISH" : "NEUTRAL");
+
+    const thesis = (cf.confluence>0.62 && cf.fragility<0.60 && reg!=="USD SHORTAGE")
+      ? (instrument==="XAU"
+          ? "Gold: macro alignment supports continuation. Hunt pullbacks inside rules."
+          : "Silver: macro plus physical/positioning supports expansion risk. Respect volatility.")
+      : (cf.confluence<0.38 || cf.fragility>0.70)
+          ? "No edge: contradictions dominate. Preserve optionality."
+          : "Weak edge: partial alignment. Trade smaller or wait.";
+
+    const invalidation = (reg==="USD SHORTAGE")
+      ? "Invalidation: stand down until funding stress and USD impulse cool."
+      : "Invalidation: real yields and USD both flip against the signal, or fragility spikes.";
+
+    return { driver:pretty[domK]||domK, conflict, flip, divergence, bias, thesis, invalidation, rel };
+  }
+
+  async function init(){
+    for(let i=0;i<240;i++){ evolve(); const f=computeFactors(); void f; }
+  }
+
+  async function tick(instrument){
+    evolve();
+    const f=computeFactors();
+    const scores=score(f);
+    const cf=confluenceFragility(f, instrument);
+    const reg=regime(f);
+    const ins=insight(f, scores, cf, reg, instrument);
+
+    const entropy = (cf.confluence<0.38 && cf.fragility>0.60) || (reg==="USD SHORTAGE");
+
+    return { instrument, f, scores, cf, reg, ins, entropy };
+  }
+
+  return { init, tick };
+})();
+
+/* ------------------ Operator regulation and companion loop ------------------ */
+const Operator = (() => {
+  const state = {
+    calm:0.60, clarity:0.50, discipline:0.50,
+    arousal:0.20, friction:false, badStreak:0,
+    lastCare:0, lastAudit:0, lastBreath:0
+  };
+
+  const DISTORTIONS = [
+    {k:"Personalization", p:"You are treating market noise as a comment on you. It is not."},
+    {k:"Negativity bias", p:"You are overweighting threat. Demand evidence."},
+    {k:"False consensus", p:"You assume others see what you see. Assume uncertainty first."},
+    {k:"Mind reading", p:"You are inventing intent. Stick to observable data."},
+    {k:"Catastrophizing", p:"You are time traveling. Return to the next decision only."}
+  ];
+
+  function decay(){
+    state.arousal = clamp(state.arousal - 0.01, 0, 1);
+    state.calm = clamp(state.calm + 0.006 - state.arousal*0.004, 0, 1);
+    state.clarity = clamp(state.clarity + 0.003 - state.arousal*0.006, 0, 1);
+  }
+
+  function cue(text){
+    document.getElementById("cueTxt").textContent = text;
+  }
+
+  function setSprite(emoji, mood){
+    document.getElementById("sprite").textContent = emoji;
+    document.getElementById("mood").textContent = mood;
+  }
+
+  function applyCare(){
+    state.lastCare = Date.now();
+    state.calm = clamp(state.calm + 0.08, 0, 1);
+    state.clarity = clamp(state.clarity + 0.04, 0, 1);
+    state.arousal = clamp(state.arousal - 0.10, 0, 1);
+    state.discipline = clamp(state.discipline + 0.02, 0, 1);
+    setSprite("✺‿✺", "Care received. Kindness is a performance enhancer.");
+    cue("Mindfulness: feelings are events, not commands. Stoic control: obey rules, not urges.");
+    setTimeout(()=>setSprite("◉‿◉","Baseline. Separate market noise from your story about it."), 1800);
+  }
+
+  function applyBreath(){
+    state.lastBreath = Date.now();
+    state.arousal = clamp(state.arousal - 0.14, 0, 1);
+    state.calm = clamp(state.calm + 0.10, 0, 1);
+    setSprite("◉︵◉", "Breath shift. Exhale longer than inhale.");
+    cue("Polyvagal cue: exhale 6, inhale 4 for 4 cycles. Return to safety, then decide.");
+    setTimeout(()=>setSprite("◉‿◉","Baseline. Separate market noise from your story about it."), 2000);
+  }
+
+  function applyAudit(){
+    state.lastAudit = Date.now();
+    state.clarity = clamp(state.clarity + 0.10, 0, 1);
+    state.discipline = clamp(state.discipline + 0.06, 0, 1);
+    const d=pick(DISTORTIONS);
+    setSprite("◉·◉", "Audit mode. Name the distortion. Replace with a test.");
+    cue(`Cognitive audit: ${d.k}. ${d.p} Buddhist impermanence: let it pass. Stoic move: focus on judgments.`);
+    setTimeout(()=>setSprite("◉‿◉","Baseline. Separate market noise from your story about it."), 2400);
+  }
+
+  function afterCommit(outcome, entropy, fragility){
+    // Crucial separation: market entropy does not automatically raise arousal.
+    // Only behavior does.
+    if(outcome==="BAD"){
+      state.badStreak++;
+      state.arousal = clamp(state.arousal + 0.12, 0, 1);
+      state.calm = clamp(state.calm - 0.08, 0, 1);
+      state.clarity = clamp(state.clarity - 0.05, 0, 1);
+      if(state.badStreak>=2) state.friction = true;
+      setSprite("◉︵◉", "You forced it. Pause and return to process.");
+      cue("Stoic check: what is in your control? Position size, entry rule, invalidation. Not outcome.");
+    } else if(outcome==="GOOD"){
+      state.badStreak = Math.max(0, state.badStreak-1);
+      state.discipline = clamp(state.discipline + 0.03, 0, 1);
+      state.clarity = clamp(state.clarity + 0.02, 0, 1);
+      state.calm = clamp(state.calm + 0.01, 0, 1);
+      state.arousal = clamp(state.arousal - 0.04, 0, 1);
+      setSprite("✺‿✺", "Good commit. You protected your future self.");
+      cue("Compassion is not softness. It is precision under stress.");
+    } else {
+      // Neutral
+      if(entropy || fragility>0.70){
+        cue("Mindful neutrality: observe. Do not add story. Wait for alignment.");
+      }
+    }
+    setTimeout(()=>setSprite("◉‿◉","Baseline. Separate market noise from your story about it."), 2200);
+  }
+
+  function updateUI(){
+    document.getElementById("calmTxt").textContent = state.calm.toFixed(2);
+    document.getElementById("clarityTxt").textContent = state.clarity.toFixed(2);
+    document.getElementById("discTxt").textContent = state.discipline.toFixed(2);
+    setBar("calmBar", state.calm);
+    setBar("clarityBar", state.clarity);
+    setBar("discBar", state.discipline);
+  }
+
+  function requiredConfluence(){
+    // Beginners need stricter threshold, advanced can work slightly lower
+    const strict = 0.14*(1-state.discipline);
+    return clamp(0.60 + strict, 0.60, 0.78);
+  }
+
+  function holdMs(){
+    // More friction when discipline is low or arousal is high
+    const base = 1400;
+    const extra = (1-state.discipline)*1200 + state.arousal*900;
+    return Math.round(base + extra);
+  }
+
+  return {
+    state, decay, updateUI,
+    applyCare, applyBreath, applyAudit,
+    afterCommit, requiredConfluence, holdMs
+  };
+})();
+
+/* ------------------ App state + loop ------------------ */
+let running=false, interval=null, speed=650;
+let cycle=0;
+let currentSnapshot=null;
+
+function setNotice(on, text){
+  const n=document.getElementById("notice");
+  if(on){
+    n.style.display="block";
+    document.getElementById("noticeT").textContent="Friction";
+    document.getElementById("noticeP").textContent=text;
+  }else{
+    n.style.display="none";
+  }
+}
+
+function gateUpdate(edge, entropy){
+  const gate=document.getElementById("gate");
+  gate.classList.remove("edge","noedge","entropy");
+  if(entropy){
+    gate.classList.add("entropy");
+    gate.textContent="ENTROPY / STAND DOWN";
+    return;
+  }
+  if(edge){
+    gate.classList.add("edge");
+    gate.textContent="EDGE";
+    return;
+  }
+  gate.classList.add("noedge");
+  gate.textContent = cycle<25 ? "BASELINE" : "NO EDGE";
+}
+
+function summarizeDomains(cf){
+  // Show only major domain contributions so it stays readable on mobile
+  const keys = Object.keys(cf.contrib01);
+  const parts = keys.map(k=>{
+    const v=cf.contrib01[k];
+    return `${k}:${v.toFixed(2)}`;
+  });
+  return parts.join("  ");
+}
+
+function updateUIFromSnapshot(S){
+  document.getElementById("cycleTxt").textContent = cycle;
+
+  document.getElementById("confVal").textContent = S.cf.confluence.toFixed(3);
+  document.getElementById("confTxt").textContent = S.cf.confluence.toFixed(2);
+  setBar("confBar", S.cf.confluence);
+  badgeClass(document.getElementById("badgeConf"), S.cf.confluence);
+
+  document.getElementById("fragVal").textContent = S.cf.fragility.toFixed(3);
+  setBar("fragBar", S.cf.fragility);
+
+  document.getElementById("regTxt").textContent = S.reg.substring(0,8).toUpperCase();
+  document.getElementById("regimeTxt").textContent = S.reg;
+
+  const regBadge=document.getElementById("badgeReg");
+  regBadge.classList.remove("good","warn","bad");
+  regBadge.classList.add(S.entropy ? "bad" : (S.cf.confluence>0.60 ? "good" : "warn"));
+
+  document.getElementById("driverTxt").textContent = S.ins.driver;
+  document.getElementById("conflictTxt").textContent = S.ins.conflict;
+  document.getElementById("flipTxt").textContent = S.ins.flip;
+
+  document.getElementById("biasTxt").textContent = S.ins.bias;
+  document.getElementById("divergeTxt").textContent = S.ins.divergence;
+  document.getElementById("divTxt").textContent = (S.ins.divergence==="BALANCED" ? "BAL" : S.ins.divergence==="SILVER LEADING" ? "SL+" : "SL-");
+
+  const divBadge=document.getElementById("badgeDiv");
+  divBadge.classList.remove("good","warn","bad");
+  if(S.ins.divergence==="SILVER LEADING") divBadge.classList.add("good");
+  else if(S.ins.divergence==="SILVER LAGGING") divBadge.classList.add("warn");
+  else divBadge.classList.add("good");
+
+  document.getElementById("thesisTxt").textContent = S.ins.thesis;
+  document.getElementById("invTxt").textContent = S.ins.invalidation;
+
+  document.getElementById("domainsTxt").textContent = summarizeDomains(S.cf);
+
+  const req = Operator.requiredConfluence();
+  const edge = (S.cf.confluence > req && S.cf.fragility < 0.60 && !S.entropy);
+
+  gateUpdate(edge, S.entropy);
+
+  // Friction UI
+  if(Operator.state.friction){
+    setNotice(true, `Hold to commit (${Math.round(Operator.holdMs()/100)/10}s). Friction is protecting you from impulse.`);
+    document.getElementById("btnCommit").textContent = "Hold to Commit";
+  }else{
+    setNotice(false,"");
+    document.getElementById("btnCommit").textContent = "✓ Commit";
+  }
+
+  Operator.updateUI();
+}
+
+async function step(){
+  cycle++;
+  Operator.decay();
+
+  const instrument = document.getElementById("instrument").value;
+  const S = await Macro.tick(instrument);
+  currentSnapshot = S;
+
+  updateUIFromSnapshot(S);
+}
+
+function start(){
+  if(running) return;
+  running=true;
+  document.getElementById("btnStart").textContent="⏸ Pause";
+  interval=setInterval(step, speed);
+}
+function pause(){
+  running=false;
+  clearInterval(interval);
+  interval=null;
+  document.getElementById("btnStart").textContent="▶ Start";
+}
+function toggle(){ running ? pause() : start(); }
+
+function resetAll(){
+  pause();
+  cycle=0;
+  Operator.state.calm=0.60;
+  Operator.state.clarity=0.50;
+  Operator.state.discipline=0.50;
+  Operator.state.arousal=0.20;
+  Operator.state.friction=false;
+  Operator.state.badStreak=0;
+  document.getElementById("sprite").textContent="◉‿◉";
+  document.getElementById("mood").textContent="Baseline. Separate market noise from your story about it.";
+  document.getElementById("cueTxt").textContent="Name the distortion. Return to control: rules, sizing, patience.";
+  currentSnapshot=null;
+  // Warm start cycle 0 display
+  step();
+}
+
+function start60sReset(){
+  const steps = [
+    "Stop. Name the state: activation present.",
+    "Breath: inhale 4, exhale 6. Repeat 4 times.",
+    "Mindfulness: feelings are passing events, not truths.",
+    "Stoic control: rules, sizing, invalidation. Not outcome.",
+    "Return: wait for alignment, then act once."
+  ];
+  let i=0;
+  const cue=document.getElementById("cueTxt");
+  cue.textContent=steps[i];
+  const timer=setInterval(()=>{
+    i++;
+    if(i>=steps.length){
+      clearInterval(timer);
+      Operator.state.arousal = clamp(Operator.state.arousal - 0.18, 0, 1);
+      Operator.state.calm = clamp(Operator.state.calm + 0.12, 0, 1);
+      Operator.state.clarity = clamp(Operator.state.clarity + 0.08, 0, 1);
+      Operator.state.badStreak = Math.max(0, Operator.state.badStreak-1);
+      cue.textContent="Reset done. Return to process. No edge, no commit.";
+      Operator.updateUI();
+      return;
+    }
+    cue.textContent=steps[i];
+  }, 12000);
+}
+
+/* ------------------ Commit logic with friction ------------------ */
+let holdTimer=null, holding=false;
+
+function commitEvaluate(){
+  const S=currentSnapshot;
+  if(!S) return;
+
+  const req = Operator.requiredConfluence();
+  const edge = (S.cf.confluence > req && S.cf.fragility < 0.60 && !S.entropy);
+
+  // Outcome depends on whether you committed into edge or noise
+  const outcome = edge ? "GOOD" : (S.entropy || S.cf.fragility>0.70 || S.cf.confluence<0.38) ? "BAD" : "NEUTRAL";
+
+  if(outcome==="BAD"){
+    if(Operator.state.badStreak>=1) Operator.state.friction=true;
+  }
+  if(outcome==="GOOD"){
+    Operator.state.discipline = clamp(Operator.state.discipline + 0.03, 0, 1);
+  }
+
+  Operator.afterCommit(outcome, S.entropy, S.cf.fragility);
+
+  // Small discipline shaping: repeated bad commits reduce discipline and raise friction
+  if(outcome==="BAD"){
+    Operator.state.discipline = clamp(Operator.state.discipline - 0.04, 0, 1);
+    Operator.state.friction = true;
+  }else if(outcome==="GOOD"){
+    Operator.state.friction = false;
+  }
+
+  updateUIFromSnapshot(S);
+}
+
+const commitBtn = document.getElementById("btnCommit");
+commitBtn.addEventListener("click", ()=>{
+  if(Operator.state.friction){
+    // friction requires hold on touch devices
+    Operator.applyAudit();
+    return;
+  }
+  commitEvaluate();
+});
+commitBtn.addEventListener("touchstart",(e)=>{
+  if(!Operator.state.friction) return;
+  e.preventDefault();
+  holding=true;
+  const ms = Operator.holdMs();
+  setNotice(true, `Hold in progress (${Math.round(ms/100)/10}s).`);
+  clearTimeout(holdTimer);
+  holdTimer=setTimeout(()=>{
+    if(!holding) return;
+    Operator.state.friction=false;
+    commitEvaluate();
+  }, ms);
+},{passive:false});
+commitBtn.addEventListener("touchend", ()=>{
+  if(!Operator.state.friction) return;
+  holding=false;
+  clearTimeout(holdTimer);
+  if(currentSnapshot) updateUIFromSnapshot(currentSnapshot);
+});
+
+/* ------------------ Bind UI ------------------ */
+document.getElementById("btnStart").addEventListener("click", toggle);
+document.getElementById("btnReset").addEventListener("click", resetAll);
+document.getElementById("btnReset60").addEventListener("click", start60sReset);
+
+document.getElementById("btnCare").addEventListener("click", ()=>Operator.applyCare());
+document.getElementById("btnBreath").addEventListener("click", ()=>Operator.applyBreath());
+document.getElementById("btnJournal").addEventListener("click", ()=>Operator.applyAudit());
+
+document.getElementById("instrument").addEventListener("change", ()=>{ if(currentSnapshot) updateUIFromSnapshot(currentSnapshot); });
+
+/* ------------------ Boot ------------------ */
+(async ()=>{
+  await Macro.init();
+  resetAll();
+  setTimeout(start, 450);
+})();
+</script>
+</body>
+</html>
